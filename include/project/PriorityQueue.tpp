@@ -32,24 +32,88 @@ void AdaptableHeapPriorityQueue<K,V,Compare>::validateHandle(EntryPtr e) const{i
 template <typename K, typename V, typename Compare>
 typename AdaptableHeapPriorityQueue<K,V,Compare>::EntryPtr AdaptableHeapPriorityQueue<K,V,Compare>::insert(const K& key,const V& value){
     // TODO: allocate, append, assign index/id, then up-heap.
-    (void)key;(void)value;return nullptr;
+    (void)key;(void)value;
+    EntryPtr e = new Entry();
+    e->key = key;
+    e->value = value;
+    e->index = heap_.size();
+    e->id = nextId_++;
+    heap_.push_back(e);
+    upHeap(e->index);
+    return e;
 }
 template <typename K, typename V, typename Compare>
 const typename AdaptableHeapPriorityQueue<K,V,Compare>::Entry& AdaptableHeapPriorityQueue<K,V,Compare>::min() const{if(empty())throw std::out_of_range("min() on empty priority queue");return *heap_.front();}
 template <typename K, typename V, typename Compare>
-typename AdaptableHeapPriorityQueue<K,V,Compare>::Entry AdaptableHeapPriorityQueue<K,V,Compare>::removeMin(){throw std::logic_error("removeMin not implemented");}
+typename AdaptableHeapPriorityQueue<K,V,Compare>::Entry AdaptableHeapPriorityQueue<K,V,Compare>::removeMin(){
+    if(empty())throw std::logic_error("removeMin() on empty priority queue");
+    EntryPtr e = heap_.front();
+    Entry result = *e;
+    std::size_t last = heap_.size() - 1;
+    if (last > 0) swapEntries(0, last);
+    heap_.pop_back();
+    delete e;
+    if (!heap_.empty()) downHeap(0);
+    return result;
+}
 template <typename K, typename V, typename Compare>
-void AdaptableHeapPriorityQueue<K,V,Compare>::remove(EntryPtr e){(void)e;/* TODO */}
+void AdaptableHeapPriorityQueue<K,V,Compare>::remove(EntryPtr e){(void)e;/* TODO */
+    validateHandle(e);
+    std::size_t i = e->index;
+    std::size_t last = heap_.size() - 1;
+    if (i != last) swapEntries(i, last);
+    heap_.pop_back();
+    delete e;
+    if (i < heap_.size()) bubble(i);
+}
 template <typename K, typename V, typename Compare>
-void AdaptableHeapPriorityQueue<K,V,Compare>::replaceKey(EntryPtr e,const K& k){(void)e;(void)k;/* TODO */}
+void AdaptableHeapPriorityQueue<K,V,Compare>::replaceKey(EntryPtr e,const K& k){(void)e;(void)k;/* TODO */
+    validateHandle(e);
+    e->key = k;
+    bubble(e->index);
+}
 template <typename K, typename V, typename Compare>
-void AdaptableHeapPriorityQueue<K,V,Compare>::replaceValue(EntryPtr e,const V& v){(void)e;(void)v;/* TODO */}
+void AdaptableHeapPriorityQueue<K,V,Compare>::replaceValue(EntryPtr e,const V& v){(void)e;(void)v;/* TODO */
+    validateHandle(e);
+    e->value = v;
+}
 template <typename K, typename V, typename Compare>
-void AdaptableHeapPriorityQueue<K,V,Compare>::buildHeap(std::vector<std::pair<K,V>> entries){(void)entries;/* TODO: bottom-up construction, not repeated insert */}
+void AdaptableHeapPriorityQueue<K,V,Compare>::buildHeap(std::vector<std::pair<K,V>> entries){(void)entries;/* TODO: bottom-up construction, not repeated insert */
+    for (auto old : heap_) delete old;
+    heap_.clear();
+    heap_.reserve(entries.size());
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        EntryPtr e = new Entry();
+        e->key = std::move(entries[i].first);
+        e->value = std::move(entries[i].second);
+        e->index = i;
+        e->id = nextId_++;
+        heap_.push_back(e);
+    }
+    for (std::size_t i = heap_.size() / 2; i-- > 0;) downHeap(i);
+}
 template <typename K, typename V, typename Compare>
 bool AdaptableHeapPriorityQueue<K,V,Compare>::validHeap() const noexcept{for(std::size_t i=1;i<heap_.size();++i){std::size_t p=(i-1)/2;if(less(heap_[i],heap_[p])||heap_[i]->index!=i)return false;}return true;}
 template <typename T, typename Compare>
 void heapSort(std::vector<T>& values,Compare comp){
     // TODO: implement in-place heap sort. Default comparator must produce ascending order.
     (void)values;(void)comp;
+    // max heap (w/ respect to comp) sift down over the first n elements
+    auto siftDown = [&](std::size_t i, std::size_t n) {
+        while (true) {
+            std::size_t l = 2 * i + 1;
+            if (l >= n) break;
+            std::size_t c = l;
+            if (l + 1 < n && comp(values[l], values[l + 1])) c = l + 1;
+            if (!comp(values[i], values[c])) break;
+            std::swap(values[i], values[c]);
+            i = c;
+        }
+    };
+    std::size_t n = values.size();
+    for (std::size_t i = n / 2; i-- > 0;) siftDown(i, n);
+    for (std::size_t end = n; end-- > 1;) {
+        std::swap(values[0], values[end]);
+        siftDown(0, end);
+    }
 }
